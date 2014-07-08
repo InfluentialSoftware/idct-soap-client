@@ -2,63 +2,56 @@
 
 namespace IDCT\Networking\Soap;
 
-class Client extends \SoapClient {
+class Client extends \SoapClient
+{
 
     /**
      * Defines if request will be sent with a basic http auth
-     * 
      * @var boolean 
      */
-    protected $auth;
+    protected $auth = false;
 
     /**
      * If auth set to true this will be sent as login for the basic http auth
-     * 
      * @var string
      */
     protected $authLogin;
 
     /**
      * If auth set to true this will be sent as password for the basic http auth
-     * 
      * @var string
      */
     protected $authPassword;
 
     /**
      * Associative array of custom headers to sent together with the request
-     * 
      * @var array
      */
     protected $customHeaders = array();
 
     /**
      * If set to false then request will not fail in case of invalid SSL cert
-     * 
      * @var boolean
      */
-    protected $ignoreCertVerify;
+    protected $ignoreCertVerify = true;
 
     /**
      * Connection negotiation timeout in seconds 
-     * 
      * @var int
      */
-    protected $negotiationTimeout;
+    protected $negotiationTimeout = 0;
 
     /**
      * Number of retries until exception is thrown
-     * 
      * @var int
      */
-    protected $persistanceFactor;
+    protected $persistanceFactor = 1;
 
     /**
      * Read timeout (after a successful connection) in seconds)
-     * 
      * @var int
      */
-    protected $persistanceTimeout;
+    protected $persistanceTimeout = 0;
 
     /**
      * Constructor of the new object. Creates an instance of the new SoapClient.
@@ -70,14 +63,15 @@ class Client extends \SoapClient {
      * @param int $persistanceFactor Number of retries.
      * @param int $persistanceTimeout Read timeout in seconds. 0 to disable.
      */
-    public function __construct($wsdl, $options, $verifyCertificate = true, $negotiationTimeout = 0, $persistanceFactor = 1, $persistanceTimeout = 0) {
-        
+    public function __construct($wsdl, $options, $verifyCertificate = true, $negotiationTimeout = 0, $persistanceFactor = 1, $persistanceTimeout = 0)
+    {
+
         $this->setNegotiationTimeout($negotiationTimeout)
             ->setPersistanceFactor($persistanceFactor)
             ->setPersistanceTimeout($persistanceTimeout)
             ->setIgnoreCertVerify($verifyCertificate)
             ->applyDefaultHeaders();
-        
+
         if (array_key_exists("login", $options)) {
             $this->auth = true;
             $this->authLogin = $options['login'];
@@ -87,7 +81,7 @@ class Client extends \SoapClient {
                 $this->authPassword = null;
             }
         }
-        
+
         parent::__construct($wsdl, $options);
     }
 
@@ -95,10 +89,10 @@ class Client extends \SoapClient {
      * Sets the negotiation (connection) timeout in seconds.
      * Throws an exception in case a negative value.
      * Set 0 to disable the timeout.
-     * 
      * @param int $timeoutInSeconds
      */
-    public function setNegotiationTimeout($timeoutInSeconds) {
+    public function setNegotiationTimeout($timeoutInSeconds)
+    {
         if ($timeoutInSeconds < 0) {
             throw new \Exception('Negotiation timeout must be a positive integer or 0 to disable.');
         } else {
@@ -110,20 +104,20 @@ class Client extends \SoapClient {
 
     /**
      * Gets the negotiation (connection) timeout in seconds
-     * 
      * @return int
      */
-    public function getNegotiationTimeout() {
+    public function getNegotiationTimeout()
+    {
         return $this->negotiationTimeout;
     }
 
     /**
      * Sets the maximum number of full data read (connection+read) retries.
      * Value must be at least equal to one.
-     * 
      * @param int $attempts
      */
-    public function setPersistanceFactor($attempts) {
+    public function setPersistanceFactor($attempts)
+    {
         if ($attempts < 1) {
             throw new \Exception('Number of attempts must be at least equal to 1.');
         } else {
@@ -135,10 +129,10 @@ class Client extends \SoapClient {
 
     /**
      * Gets the maximum number of full data read (connection+read) retries.
-     * 
      * @return int
      */
-    public function getPersistanceFactor() {
+    public function getPersistanceFactor()
+    {
         return $this->persistanceFactor;
     }
 
@@ -146,10 +140,10 @@ class Client extends \SoapClient {
      * Sets the data read (after a successful negotiation) timeout in seconds.
      * Throws an exception when value is negative.
      * Set 0 to disable timeout.
-     * 
      * @param type $timeoutInSeconds
      */
-    public function setPersistanceTimeout($timeoutInSeconds) {
+    public function setPersistanceTimeout($timeoutInSeconds)
+    {
         if ($timeoutInSeconds < 0) {
             throw new \Exception('Persistance timeout must be a positive integer or 0 to disable.');
         } else {
@@ -163,17 +157,18 @@ class Client extends \SoapClient {
      * Gets the data read (after negotiation) timeout in seconds.
      * @return int
      */
-    public function getPersistanceTimeout() {
+    public function getPersistanceTimeout()
+    {
         return $this->persistanceTimeout;
     }
 
     /**
      * Sets an array of custom http headers to be sent together with the request.
      * Throws an exception if not an array.
-     * 
      * @param array $headers
      */
-    public function setHeaders($headers) {
+    public function setHeaders($headers)
+    {
         if (is_array($headers)) {
             $this->customHeaders = $headers;
             return $this;
@@ -184,21 +179,21 @@ class Client extends \SoapClient {
 
     /**
      * Gets the array of custom headers to be sent together with the request.
-     * 
      * @return array
      */
-    public function getHeaders() {
+    public function getHeaders()
+    {
         return $this->customHeaders;
     }
 
     /**
      * Sets a custom header to be sent together with the request.
      * Throws an exception if header's name is not at least 1 char long.
-     * 
      * @param string $header
      * @param string $value
      */
-    public function setHeader($header, $value) {
+    public function setHeader($header, $value)
+    {
         if (strlen($header) < 1) {
             throw new \Exception('Header must be a string.');
         }
@@ -208,20 +203,20 @@ class Client extends \SoapClient {
 
     /**
      * Gets a custom header from the array of headers to be sent with the request or null.
-     * 
      * @param string $header
      * @return string
      */
-    public function getHeader($header) {
+    public function getHeader($header)
+    {
         return $this->customHeaders[$header];
     }
 
     /**
      * Sets a boolean value of the flag which indicates if request should not worry about invalid SSL certificate.
-     * 
      * @param boolean $value
      */
-    public function setIgnoreCertVerify($value) {
+    public function setIgnoreCertVerify($value)
+    {
         $this->ignoreCertVerify = $value;
         return $this;
     }
@@ -230,7 +225,8 @@ class Client extends \SoapClient {
      * Gets the value of the flag which indicates if request should not worry about invalid SSL certificate.
      * @return boolean
      */
-    public function getIgnoreCertVerify() {
+    public function getIgnoreCertVerify()
+    {
         return $this->ignoreCertVerify;
     }
 
@@ -250,7 +246,7 @@ class Client extends \SoapClient {
 
         return $headersFormatted;
     }
-    
+
     /**
      * 
      * @return \IDCT\Networking\Soap\Client
@@ -260,14 +256,51 @@ class Client extends \SoapClient {
         $defaultHeaders = array(
             'Content-Type' => 'type/application-xml',
         );
-        
+
         foreach ($defaultHeaders as $headerKey => $headerValue) {
             $this->setHeader($headerKey, $headerValue);
         }
-        
+
         return $this;
     }
-    
+
+    /**
+     * @param resource $ch cURL Handle
+     * @param type $rawResponse
+     * @return \IDCT\Networking\Soap\Response
+     */
+    private function buildResponse($ch, $rawResponse)
+    {
+
+        /** @todo remove these */
+        $curl_errno = curl_errno($ch);
+        $curl_error = curl_error($ch);
+
+        $response = new Response();
+
+        if (curl_errno($ch) <> 0 && (curl_errno($ch) === 28 || curl_errno($ch) === 7)) {
+            $response->setStatus(Response::STATUS_TIMEOUT);
+            $response->setError('Service unavailable, please try again shortly.');
+        } elseif (curl_errno($ch) <> 0) {
+            $response->setStatus(Response::STATUS_FAIL);
+            $response->setError('Something really went bang.... Ka-Blamo!');/** @todo improve error */
+        } else {
+            $response->setStatus(Response::STATUS_SUCCESS);
+            $response->setResponse($rawResponse);
+        }
+
+        return $response;
+    }
+
+    /**
+     * 
+     * @param int $attempt
+     * @return boolean
+     */
+    private function exhaustedAttempts($attempt)
+    {
+        return ($attempt >= $this->persistanceFactor) ? true : false;
+    }
 
     /**
      * Performs the request using cUrl, should not be called directly, but through
@@ -282,9 +315,9 @@ class Client extends \SoapClient {
      * @param bool $one_way Currently not used. In the signature for compatibility with SoapClient.
      * @return mixed
      */
-    public function __doRequest($request, $location, $action, $version, $one_way = null) {
-        $response = "";
-        for ($attempt = 0; $attempt < $this->persistanceFactor; $attempt++) {
+    public function __doRequest($request, $location, $action, $version, $one_way = null)
+    {
+        for ($attempt = 1; $attempt < $this->persistanceFactor; $attempt++) {
             $ch = curl_init($location);
             curl_setopt($ch, CURLOPT_HEADER, false);
             if ($one_way !== true) {
@@ -295,7 +328,6 @@ class Client extends \SoapClient {
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->negotiationTimeout);
             curl_setopt($ch, CURLOPT_TIMEOUT, $this->persistanceTimeout);
             $defaultHeaders = array(
-                
                 'SOAPAction' => '"' . $action . '"'
             );
             $headers = array_merge($defaultHeaders, $this->customHeaders);
@@ -314,15 +346,10 @@ class Client extends \SoapClient {
                 curl_setopt($ch, CURLOPT_USERPWD, $credentials);
             }
 
-            $response = curl_exec($ch);
-            $curl_errno = curl_errno($ch);
-            $curl_error = curl_error($ch);
+            $rawResponse = curl_exec($ch);
+            $response = $this->buildResponse($ch, $rawResponse);
 
-            if (curl_errno($ch) !== 0) {
-                throw new \Exception(curl_error($ch));
-            } elseif ($attempt > $this->persistanceFactor - 1) {
-                throw new \Exception('Request failed for the maximum number of attempts.');
-            } else {
+            if ($this->exhaustedAttempts($attempt)) {
                 break;
             }
         }
