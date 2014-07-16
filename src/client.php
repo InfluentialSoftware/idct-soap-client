@@ -4,6 +4,8 @@ namespace IDCT\Networking\Soap;
 
 class Client extends \SoapClient
 {
+    
+    private $curlHandle;
 
     /**
      * Defines if request will be sent with a basic http auth
@@ -69,8 +71,7 @@ class Client extends \SoapClient
         $this->setNegotiationTimeout($negotiationTimeout)
             ->setPersistanceFactor($persistanceFactor)
             ->setPersistanceTimeout($persistanceTimeout)
-            ->setIgnoreCertVerify($verifyCertificate)
-            ->applyDefaultHeaders();
+            ->setIgnoreCertVerify($verifyCertificate);
 
         if (array_key_exists("login", $options)) {
             $this->auth = true;
@@ -229,6 +230,11 @@ class Client extends \SoapClient
     {
         return $this->ignoreCertVerify;
     }
+    
+    private function requireVerifyCert()
+    {
+        return ($this->getIgnoreCertVerify()) ? false : true;
+    }
 
     /**
      * Return colon seperated headers in a string
@@ -251,10 +257,11 @@ class Client extends \SoapClient
      * 
      * @return \IDCT\Networking\Soap\Client
      */
-    private function applyDefaultHeaders()
+    private function applyDefaultHeaders($action)
     {
         $defaultHeaders = array(
             'Content-Type' => 'type/application-xml',
+            'SOAPAction' => '"' . $action . '"',
         );
 
         foreach ($defaultHeaders as $headerKey => $headerValue) {
@@ -265,28 +272,29 @@ class Client extends \SoapClient
     }
 
     /**
-     * @param resource $ch cURL Handle
+     * @param resource $this->curlHandle cURL Handle
      * @param type $rawResponse
      * @return \IDCT\Networking\Soap\Response
      */
-    private function buildResponse($ch, $rawResponse)
+    private function buildResponse($rawResponse)
     {
-
-        /** @todo remove these */
-        $curl_errno = curl_errno($ch);
-        $curl_error = curl_error($ch);
-
         $response = new Response();
 
-        if (curl_errno($ch) <> 0 && (curl_errno($ch) === 28 || curl_errno($ch) === 7)) {
+        if (curl_errno($this->curlHandle) <> 0 && (curl_errno($this->curlHandle) === 28 || curl_errno($this->curlHandle) === 7)) {
             $response->setStatus(Response::STATUS_TIMEOUT);
             $response->setError('Service unavailable, please try again shortly.');
-        } elseif (curl_errno($ch) <> 0) {
+        } elseif (curl_errno($this->curlHandle) <> 0) {
             $response->setStatus(Response::STATUS_FAIL);
             $response->setError('Something really went bang.... Ka-Blamo!');/** @todo improve error */
         } else {
             $response->setStatus(Response::STATUS_SUCCESS);
             $response->setResponse($rawResponse);
+            /** 
+             * @internal Note when extending __doRequest, calling __getLastRequest 
+             * will probably report incorrect information unless you make sure to update the 
+             * internal __last_request variable. Save yourself some headaches. 
+             */
+            $this->__last_request = $rawResponse;
         }
 
         return $response;
@@ -303,6 +311,46 @@ class Client extends \SoapClient
     }
 
     /**
+     * @param type $location
+     * @param type $request
+     */
+    private function setupCurlRequest($location, $request)
+    {
+        $this->curlHandle = curl_init($location);
+        curl_setopt($this->curlHandle, CURLOPT_HEADER, false);
+        curl_setopt($this->curlHandle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($this->curlHandle, CURLOPT_POST, true);
+        curl_setopt($this->curlHandle, CURLOPT_POSTFIELDS, $request);
+        curl_setopt($this->curlHandle, CURLOPT_CONNECTTIMEOUT, $this->negotiationTimeout);
+        curl_setopt($this->curlHandle, CURLOPT_TIMEOUT, $this->persistanceTimeout);
+        
+    }
+    
+    /**
+     * @param type $action
+     */
+    private function setupCurlHeaders($action)
+    {
+        $this->applyDefaultHeaders($action);
+        $headersFormatted = $this->buildHeaders($this->getHeaders());
+        curl_setopt($this->curlHandle, CURLOPT_HTTPHEADER, $headersFormatted);
+    }
+    
+    private function setupCurlSsl() 
+    {
+        curl_setopt($this->curlHandle, CURLOPT_SSL_VERIFYPEER, $this->requireVerifyCert());
+    }
+    
+    private function setupCurlHttpAuth()
+    {
+        if ($this->auth === true) {
+            $credentials = $this->authLogin;
+            $credentials .= ($this->authPassword !== null) ? ":" . $this->authPassword : "";
+            curl_setopt($this->curlHandle, CURLOPT_USERPWD, $credentials);
+        }
+    }
+
+    /**
      * Performs the request using cUrl, should not be called directly, but through
      * normal usage of PHP SoapClient (using particular methods of the WebService).
      * Throws an exception if connection or data read fails more than the number of retries (persistanceFactor).
@@ -310,50 +358,46 @@ class Client extends \SoapClient
      * 
      * @param string $request Request (XML/Data) to be sent to the WebService parsed by SoapClient.
      * @param string $location WebService URL.
-     * @param string $action Currently not used. In the signature for compatibility with SoapClient. TODO: to be used with particular soap versions.
+     * @param string $action TODO: to be used with particular soap versions.
      * @param int $version Currently not used. In the signature for compatibility with SoapClient. TODO: add Soap Version selection.
      * @param bool $one_way Currently not used. In the signature for compatibility with SoapClient.
      * @return mixed
      */
     public function __doRequest($request, $location, $action, $version, $one_way = null)
     {
-        for ($attempt = 1; $attempt < $this->persistanceFactor; $attempt++) {
-            $ch = curl_init($location);
-            curl_setopt($ch, CURLOPT_HEADER, false);
-            if ($one_way !== true) {
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            }
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->negotiationTimeout);
-            curl_setopt($ch, CURLOPT_TIMEOUT, $this->persistanceTimeout);
-            $defaultHeaders = array(
-                'SOAPAction' => '"' . $action . '"'
-            );
-            $headers = array_merge($defaultHeaders, $this->customHeaders);
-            $headersFormatted = $this->buildHeaders($headers);
-
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headersFormatted);
-            if ($this->getIgnoreCertVerify() === true) {
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            } else {
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            }
-
-            if ($this->auth === true) {
-                $credentials = $this->authLogin;
-                $credentials .= ($this->authPassword !== null) ? ":" . $this->authPassword : "";
-                curl_setopt($ch, CURLOPT_USERPWD, $credentials);
-            }
-
-            $rawResponse = curl_exec($ch);
-            $response = $this->buildResponse($ch, $rawResponse);
-
+        for ($attempt = 1; $attempt <= $this->persistanceFactor; $attempt++) {
+            
+            $this->setupCurlRequest($location, $request);
+            $this->setupCurlHeaders($action);
+            $this->setupCurlSsl();
+            $this->setupCurlHttpAuth();
+            
+            $curlResponse = curl_exec($this->curlHandle);
+            /** __soapCall is expecting a string bool responses not allowed */
+            $rawResponse = ($curlResponse) ? $curlResponse : '';
+            
             if ($this->exhaustedAttempts($attempt)) {
                 break;
             }
         }
+        return $rawResponse;
+    }
+    
+    /**
+     * 
+     * @param type $function_name
+     * @param array $arguments
+     * @param array $options
+     * @param type $input_headers
+     * @param array $output_headers
+     * @return Response
+     */
+    public function __soapCall($function_name, array $arguments, array $options = null, $input_headers = null, array &$output_headers = null)
+    {
+        $stdClass = parent::__soapCall($function_name, $arguments, $options, $input_headers, $output_headers);
+        
+        $response = $this->buildResponse($stdClass);
+        
         return $response;
     }
-
 }
